@@ -9,6 +9,13 @@ import json
 import asyncio
 import httpx
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+token = os.getenv("API_TOKEN")
+
 
 from sqlalchemy import (
     create_engine,
@@ -192,10 +199,9 @@ def createTableIntoDatabase(data):
 
 
 def extractUserRatingHistory(username="Super_BrainPower"):
-    access_token = "lip_FJbk2xc8lE26MjBX0vF6"
     api_url = f"https://lichess.org/api/user/Super_BrainPower/rating-history"
     headers = {
-        "Authorization": f"Bearer {access_token}",
+        "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",  # Adjust content type if needed
     }
 
@@ -209,6 +215,8 @@ def extractUserRatingHistory(username="Super_BrainPower"):
         print(f"An unexpected error occurred: {e}")
 
 
+extractUserRatingHistory()
+
 for item in getPlayersFromDataBase():
     # extractUserRatingHistory(item["username"])
     """"""
@@ -217,10 +225,9 @@ for item in getPlayersFromDataBase():
 # Get 200 Players from API
 def getClassicalUsers():
     try:
-        access_token = "lip_FJbk2xc8lE26MjBX0vF6"
         api_url = "https://lichess.org/api/player/top/500/classical"
         headers = {
-            "Authorization": f"Bearer {access_token}",
+            "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",  # Adjust content type if needed
         }
         response = requests.get(api_url, headers=headers)
@@ -232,6 +239,7 @@ def getClassicalUsers():
 
 
 # getClassicalUsers()
+
 
 # Fast API Things
 @app.get("/players")
