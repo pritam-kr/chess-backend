@@ -4,11 +4,21 @@ from psycopg2 import sql
 import requests
 from typing import Union, List, Annotated
 from fastapi import FastAPI, HTTPException, Depends
+from pydantic import BaseModel
 import json
 import asyncio
 import httpx
 
-from sqlalchemy import create_engine, Column, Integer, String, MetaData, Table
+from sqlalchemy import (
+    create_engine,
+    Column,
+    Integer,
+    String,
+    MetaData,
+    Table,
+    JSON,
+    Boolean,
+)
 from databases import Database
 
 app = FastAPI()
@@ -26,10 +36,27 @@ try:
 except psycopg2.Error as e:
     print("Error connecting to the database:", e)
 
+
 # TABLE name in Database
 tableName = "players"
 # Create a cursor
 cursor = connection.cursor()
+
+# Replace the database URL with your PostgreSQL connection string
+DATABASE_URL = "postgresql://postgres:18218910p@localhost:5432/postgres"
+
+# Connect to the database
+database = Database(DATABASE_URL)
+metadata = MetaData()
+
+
+class Players(BaseModel):
+    id: str
+    username: str
+    rating: int
+    progress: int
+    title: str
+    online: bool
 
 
 # Close data base connection
@@ -138,7 +165,7 @@ def extractUserRatingHistory(username="apodex64"):
         print(f"An unexpected error occurred: {e}")
 
 
-extractUserRatingHistory()
+# extractUserRatingHistory()
 
 
 # Fetch an API
@@ -150,10 +177,10 @@ def getClassicalUsers():
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json",  # Adjust content type if needed
         }
-        response = requests.get(api_url, headers=headers)
-        data = response.json()["users"]
+        # response = requests.get(api_url, headers=headers)
+        # data = response.json()["users"]
 
-        createTableIntoDatabase(data)
+        # createTableIntoDatabase(data)
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
 
@@ -162,11 +189,11 @@ getClassicalUsers()
 
 
 # Fast API Things
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
+@app.get("/players")
+def getPlayers():
+    select_query = "SELECT * FROM players;"
+    cursor.execute(select_query)
+    rows = cursor.fetchall()
+    print(rows)
 
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: Union[str, None] = None):
-    return {"item_id": item_id, "q": q}
+    return {"players": rows}
