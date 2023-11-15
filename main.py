@@ -5,9 +5,6 @@ import requests
 from typing import Union, List, Annotated
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
-import json
-import asyncio
-import httpx
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
@@ -15,17 +12,8 @@ import os
 load_dotenv()
 
 token = os.getenv("API_TOKEN")
-
-
 from sqlalchemy import (
-    create_engine,
-    Column,
-    Integer,
-    String,
     MetaData,
-    Table,
-    JSON,
-    Boolean,
 )
 from databases import Database
 
@@ -215,11 +203,7 @@ def extractUserRatingHistory(username="Super_BrainPower"):
         print(f"An unexpected error occurred: {e}")
 
 
-extractUserRatingHistory()
-
-for item in getPlayersFromDataBase():
-    # extractUserRatingHistory(item["username"])
-    """"""
+# extractUserRatingHistory()
 
 
 # Get 200 Players from API
