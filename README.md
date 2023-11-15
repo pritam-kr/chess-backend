@@ -9,6 +9,9 @@ Make sure you have the following installed on your machine:
 Python (>=3.7)
 PostgreSQL
 
+## Roadmap
+![roadmap]("https://res.cloudinary.com/dhqxln7zi/image/upload/v1700074520/Screenshot_2023-11-16_at_12.21.49_AM_s14k57.png")
+
 ## API Endpoints
 
 - GET /players
