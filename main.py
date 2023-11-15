@@ -8,6 +8,7 @@ from pydantic import BaseModel
 import json
 import asyncio
 import httpx
+from fastapi.middleware.cors import CORSMiddleware
 
 from sqlalchemy import (
     create_engine,
@@ -22,6 +23,18 @@ from sqlalchemy import (
 from databases import Database
 
 app = FastAPI()
+origins = [
+    "http://localhost",
+    "http://localhost:3000",  # Add the addresses of your frontend applications
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # Making Database connection
 connection = psycopg2.connect(
@@ -39,6 +52,7 @@ except psycopg2.Error as e:
 
 # TABLE name in Database
 tableName = "players"
+tableNameForRating = "ratingHistory"
 # Create a cursor
 cursor = connection.cursor()
 
@@ -57,6 +71,18 @@ class Players(BaseModel):
     progress: int
     title: str
     online: bool
+
+
+# get Players from DataBase
+def getPlayersFromDataBase():
+    query = f"SELECT id, username, rating, progress, title, online FROM {tableName};"
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    columns = [desc[0] for desc in cursor.description]
+
+    # Process the rows and create a list of dictionaries
+    key_value_list = [{columns[i]: row[i] for i in range(len(columns))} for row in rows]
+    return key_value_list
 
 
 # Close data base connection
@@ -92,7 +118,7 @@ def getTableData():
 
 
 # Checking table is already created or not
-def checkTableIsAlreadyCreated():
+def checkPlayerTableIsAlreadyCreated():
     check_table_query = sql.SQL(
         """
     SELECT EXISTS (
@@ -108,8 +134,24 @@ def checkTableIsAlreadyCreated():
     return table_exists
 
 
+def checkRatingHistoryTableAlreadyCreated():
+    check_table_query = sql.SQL(
+        """
+    SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = %s
+    )
+    """
+    )
+
+    cursor.execute(check_table_query, (tableNameForRating,))
+    table_exists = cursor.fetchone()[0]
+    return table_exists
+
+
 def createTableIntoDatabase(data):
-    if not checkTableIsAlreadyCreated():
+    if not checkPlayerTableIsAlreadyCreated():
         create_script = """
         CREATE TABLE IF NOT EXISTS players (
         id VARCHAR PRIMARY KEY,
@@ -149,9 +191,9 @@ def createTableIntoDatabase(data):
         print("Table is already Created")
 
 
-def extractUserRatingHistory(username="apodex64"):
+def extractUserRatingHistory(username="Super_BrainPower"):
     access_token = "lip_FJbk2xc8lE26MjBX0vF6"
-    api_url = f"https://lichess.org/api/user/{username}/rating-history"
+    api_url = f"https://lichess.org/api/user/Super_BrainPower/rating-history"
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json",  # Adjust content type if needed
@@ -160,15 +202,19 @@ def extractUserRatingHistory(username="apodex64"):
     try:
         response = requests.get(api_url, headers=headers)
         print(response.json())
+        # print(username)
+        return
 
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
 
 
-# extractUserRatingHistory()
+for item in getPlayersFromDataBase():
+    # extractUserRatingHistory(item["username"])
+    """"""
 
 
-# Fetch an API
+# Get 200 Players from API
 def getClassicalUsers():
     try:
         access_token = "lip_FJbk2xc8lE26MjBX0vF6"
@@ -177,23 +223,41 @@ def getClassicalUsers():
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json",  # Adjust content type if needed
         }
-        # response = requests.get(api_url, headers=headers)
-        # data = response.json()["users"]
+        response = requests.get(api_url, headers=headers)
+        data = response.json()["users"]
 
-        # createTableIntoDatabase(data)
+        createTableIntoDatabase(data)
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
 
 
-getClassicalUsers()
-
+# getClassicalUsers()
 
 # Fast API Things
 @app.get("/players")
 def getPlayers():
-    select_query = "SELECT * FROM players;"
-    cursor.execute(select_query)
-    rows = cursor.fetchall()
-    print(rows)
+    try:
+        lists = getPlayersFromDataBase()
+        if lists:
+            return {"players": lists}
+        else:
+            return {"Error": "Something went wrong, Please try again later"}
 
-    return {"players": rows}
+    except Exception as e:
+        return {"Error": f"Something went wrong, {str(e)}"}
+
+
+@app.get("/top-players")
+def to50Players():
+    try:
+        lists = sorted(
+            getPlayersFromDataBase(), key=lambda x: x["rating"], reverse=True
+        )[:50]
+
+        if lists:
+            return {"top-players": lists}
+        else:
+            return {"Error": "Something went wrong, Please try again later"}
+
+    except Exception as e:
+        return {"Error": f"Something went wrong, {str(e)}"}
