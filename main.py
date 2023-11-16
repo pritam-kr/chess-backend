@@ -2,20 +2,27 @@ from asyncio import constants
 import psycopg2
 from psycopg2 import sql
 import requests
-from typing import Union, List, Annotated
-from fastapi import FastAPI, HTTPException, Depends
-from pydantic import BaseModel
+
+# from typing import Union, List, Annotated
+from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
+from fastapi.responses import JSONResponse
+
+# from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
 
+# Call the asynchronous function using an event loop
+import asyncio
+import httpx
+
 load_dotenv()
 
 token = os.getenv("API_TOKEN")
-from sqlalchemy import (
-    MetaData,
-)
-from databases import Database
+# from sqlalchemy import (
+#     MetaData,
+# )
+# from databases import Database
 
 app = FastAPI()
 origins = [
@@ -49,6 +56,7 @@ tableNameForRating = "ratingHistory"
 # Create a cursor
 cursor = connection.cursor()
 
+
 # get Players from DataBase
 def getPlayersFromDataBase():
     query = f"SELECT id, username, rating, progress, title, online FROM {tableName};"
@@ -81,7 +89,7 @@ def deleteTable():
 # RETRIEVE Data from Table
 def getTableData():
     # Execute a SELECT query to retrieve data from the table
-    select_query = f"SELECT * FROM {tableName};"
+    select_query = f"SELECT * FROM {tableNameForRating};"
     cursor.execute(select_query)
 
     # Fetch all the rows from the result set
@@ -91,6 +99,9 @@ def getTableData():
     # Print the retrieved data
     # for row in rows:
     # print(row)
+
+
+# getTableData()
 
 
 # Checking table is already created or not
@@ -120,7 +131,6 @@ def checkRatingHistoryTableAlreadyCreated():
     )
     """
     )
-
     cursor.execute(check_table_query, (tableNameForRating,))
     table_exists = cursor.fetchone()[0]
     return table_exists
@@ -167,24 +177,141 @@ def createTableIntoDatabase(data):
         print("Table is already Created")
 
 
-def extractUserRatingHistory(username="Super_BrainPower"):
-    api_url = f"https://lichess.org/api/user/Super_BrainPower/rating-history"
+async def extractUserRatingHistory(username="Super_BrainPower", token=token):
+    api_url = f"https://lichess.org/api/user/{username}/rating-history"
     headers = {
         "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",  # Adjust content type if needed
+        # "Content-Type": "application/json",  # Adjust content type if needed
     }
 
-    try:
-        response = requests.get(api_url, headers=headers)
-        print(response.json())
-        # print(username)
-        return
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(api_url, headers=headers)
+            response.raise_for_status()
+            return response.json()
+            # Process the response as needed
+        except httpx.HTTPError as http_err:
+            print(f"HTTP error occurred: {http_err}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
 
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+
+def background_task(username):
+    rating_history = asyncio.run(extractUserRatingHistory(username))
+    insert_script = sql.SQL(
+        """
+        INSERT INTO ratingHistory (id, Bullet, Rapid, Classical, Correspondence, Chess960, "King of the Hill",  "Three-check", Antichess, Atomic, Horde, "Racing Kings", Crazyhouse, Puzzles, UltraBullet)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+    ).format(sql.Identifier(tableNameForRating))
+
+    for item in rating_history:
+
+        def getTableValue(rowname):
+            if item["name"] == "Bullet":
+                return item["points"]
+            elif item["name"] == "Rapid":
+                return item["points"]
+            elif item["name"] == "Classical":
+                return item["points"]
+            elif item["name"] == "Correspondence":
+                return item["points"]
+            elif item["name"] == "Chess960":
+                return item["points"]
+            elif item["name"] == "King of the Hill":
+                return item["points"]
+            elif item["name"] == "Three-check":
+                return item["points"]
+            elif item["name"] == "Antichess":
+                return item["points"]
+            elif item["name"] == "Atomic":
+                return item["points"]
+            elif item["name"] == "Horde":
+                return item["points"]
+            elif item["name"] == "Racing Kings":
+                return item["points"]
+            elif item["name"] == "Crazyhouse":
+                return item["points"]
+            elif item["name"] == "Puzzles":
+                return item["points"]
+            elif item["name"] == "UltraBullet":
+                return item["points"]
+
+        # insert_value = (
+        #     username,
+        #     getTableValue("Bullet"),
+        #     getTableValue("Rapid"),
+        #     getTableValue("Classical"),
+        #     getTableValue("Correspondence"),
+        #     getTableValue("Chess960"),
+        #     getTableValue("King of the Hill"),
+        #     getTableValue("Three-check"),
+        #     getTableValue("Antichess"),
+        #     getTableValue("Atomic"),
+        #     getTableValue("Horde"),
+        #     getTableValue("Racing Kings"),
+        #     getTableValue("Crazyhouse"),
+        #     getTableValue("Puzzles"),
+        #     getTableValue("UltraBullet"),
+        # )
 
 
-# extractUserRatingHistory()
+        insert_value = (
+            username,
+            [1],
+            [2],
+            [3],
+            [4],
+            [5],
+            [6],
+            [7],
+            [8],
+            [9],
+            [10],
+            [11],
+            [12],
+            [13],
+            [14]
+        )
+
+        cursor.execute(insert_script, insert_value)
+    connection.commit()
+
+
+@app.get("/fetch-data/{username}")
+async def fetch_data(username: str, background_tasks: BackgroundTasks):
+    if not checkRatingHistoryTableAlreadyCreated():
+        create_script = """
+            CREATE TABLE IF NOT EXISTS ratingHistory (
+            id VARCHAR PRIMARY KEY,
+            Bullet integer[],
+            Rapid integer[], 
+            Classical integer[],
+            Correspondence integer[],
+            Chess960 integer[],
+            "King of the Hill" integer[],
+            "Three-check" integer[],
+            Antichess integer[],
+            Atomic integer[],
+            Horde integer[],
+            "Racing Kings" integer[],
+            Crazyhouse integer[],
+            Puzzles integer[],
+            UltraBullet integer[]
+            )
+        """
+        #cursor.execute(create_script)
+        #connection.commit()
+    else:
+        print("Table Created for rating history")
+
+    # for item in getPlayersFromDataBase():
+    #     background_tasks.add_task(background_task, item["username"])
+    background_tasks.add_task(background_task, username)
+
+    #
+    # top_players = await extractUserRatingHistory()
+    return JSONResponse(content={"message": "Data fetching initiated"})
 
 
 # Get 200 Players from API
@@ -197,8 +324,9 @@ def getClassicalUsers():
         }
         response = requests.get(api_url, headers=headers)
         data = response.json()["users"]
+        print(data)
 
-        createTableIntoDatabase(data)
+        # createTableIntoDatabase(data)
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
 
