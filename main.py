@@ -30,7 +30,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 # Making Database connection
 connection = psycopg2.connect(
     host="localhost",
@@ -44,29 +43,11 @@ try:
 except psycopg2.Error as e:
     print("Error connecting to the database:", e)
 
-
 # TABLE name in Database
 tableName = "players"
 tableNameForRating = "ratingHistory"
 # Create a cursor
 cursor = connection.cursor()
-
-# Replace the database URL with your PostgreSQL connection string
-DATABASE_URL = "postgresql://postgres:18218910p@localhost:5432/postgres"
-
-# Connect to the database
-database = Database(DATABASE_URL)
-metadata = MetaData()
-
-
-class Players(BaseModel):
-    id: str
-    username: str
-    rating: int
-    progress: int
-    title: str
-    online: bool
-
 
 # get Players from DataBase
 def getPlayersFromDataBase():
